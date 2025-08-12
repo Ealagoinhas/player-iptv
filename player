@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Player IPTV via MAC</title>
+<style>
+  body {
+    background-color: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    max-width: 700px;
+    margin: auto;
+  }
+  input, button {
+    padding: 10px;
+    font-size: 16px;
+    margin-right: 10px;
+    border-radius: 5px;
+    border: none;
+  }
+  button {
+    background-color: #ffcc00;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #channels {
+    margin-top: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #555;
+    padding: 10px;
+  }
+  .channel {
+    padding: 8px;
+    border-bottom: 1px solid #444;
+    cursor: pointer;
+  }
+  .channel:hover {
+    background-color: #333;
+  }
+  video {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 640px;
+    height: 360px;
+    background: black;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+
+<h1>Player IPTV via MAC Address</h1>
+
+<input type="text" id="mac" placeholder="Digite seu MAC Address" />
+<button onclick="login()">Entrar</button>
+<div id="status"></div>
+
+<div id="channels"></div>
+
+<video id="player" controls></video>
+
+<script>
+  const player = document.getElementById('player');
+
+  // URL base do seu servidor IPTV
+  const serverUrl = 'http://ntk.lat'; // <-- sua URL inserida aqui
+
+  async function login() {
+    const mac = document.getElementById('mac').value.trim();
+    if (!mac) {
+      alert('Informe o MAC Address');
+      return;
+    }
+
+    document.getElementById('status').textContent = 'Carregando canais...';
+    document.getElementById('channels').innerHTML = '';
+    player.pause();
+    player.src = '';
+
+    // URL da API Xtream Codes para pegar canais live via MAC
+    const apiUrl = `${serverUrl}/player_api.php?username=${encodeURIComponent(mac)}&password=${encodeURIComponent(mac)}&action=get_live_streams`;
+
+    try {
+      const res = await fetch(apiUrl);
+      if (!res.ok) throw new Error('Erro na API');
+
+      const data = await res.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        document.getElementById('status').textContent = 'Nenhum canal encontrado ou MAC inválido.';
+        return;
+      }
+
+      document.getElementById('status').textContent = `Encontrados ${data.length} canais. Clique para reproduzir.`;
+
+      const channelsDiv = document.getElementById('channels');
+      data.forEach(channel => {
+        const div = document.createElement('div');
+        div.className = 'channel';
+        div.textContent = channel.name;
+        div.onclick = () => playChannel(channel.stream_url);
+        channelsDiv.appendChild(div);
+      });
+
+    } catch (err) {
+      document.getElementById('status').textContent = 'Erro: ' + err.message;
+    }
+  }
+
+  function playChannel(url) {
+    if (Hls.isSupported()) {
+      if (window.hls) {
+        window.hls.destroy();
+      }
+      window.hls = new Hls();
+      window.hls.loadSource(url);
+      window.hls.attachMedia(player);
+      window.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        player.play();
+      });
+    } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
+      player.src = url;
+      player.play();
+    } else {
+      alert('Seu navegador não suporta reprodução HLS.');
+    }
+  }
+</script>
+
+</body>
+</html>
